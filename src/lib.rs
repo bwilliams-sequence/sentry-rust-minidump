@@ -6,40 +6,51 @@ use sentry::{
 
 pub use minidumper_child::{ClientHandle, Error};
 
-#[must_use = "The return value from init() should not be dropped until the program exits"]
-pub fn init(sentry_client: &sentry::Client) -> Result<ClientHandle, Error> {
+type OnMessage = fn(u32, Vec<u8>);
+
+#[must_use = "The return value from init_w_message_support() should not be dropped until the program exits"]
+pub fn init_w_message_support(
+    sentry_client: &sentry::Client,
+    on_message: Option<OnMessage>,
+) -> Result<ClientHandle, Error> {
     let sentry_client = sentry_client.clone();
 
-    let child = MinidumperChild::new().on_minidump(move |buffer, path| {
-        sentry::with_scope(
-            |scope| {
-                // Remove event.process because this event came from the
-                // main app process
-                scope.remove_extra("event.process");
+    let child = MinidumperChild::new()
+        .on_minidump(move |buffer, path| {
+            sentry::with_scope(
+                |scope| {
+                    // Remove event.process because this event came from the
+                    // main app process
+                    scope.remove_extra("event.process");
 
-                let filename = path
-                    .file_name()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "minidump.dmp".to_string());
+                    let filename = path
+                        .file_name()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "minidump.dmp".to_string());
 
-                scope.add_attachment(Attachment {
-                    buffer,
-                    filename,
-                    ty: Some(AttachmentType::Minidump),
-                    ..Default::default()
-                });
-            },
-            || {
-                sentry::capture_event(Event {
-                    level: Level::Fatal,
-                    ..Default::default()
-                })
-            },
-        );
+                    scope.add_attachment(Attachment {
+                        buffer,
+                        filename,
+                        ty: Some(AttachmentType::Minidump),
+                        ..Default::default()
+                    });
+                },
+                || {
+                    sentry::capture_event(Event {
+                        level: Level::Fatal,
+                        ..Default::default()
+                    })
+                },
+            );
 
-        // We need to flush because the server will exit after this closure returns
-        sentry_client.flush(Some(std::time::Duration::from_secs(5)));
-    });
+            // We need to flush because the server will exit after this closure returns
+            sentry_client.flush(Some(std::time::Duration::from_secs(5)));
+        })
+        .on_message(move |kind, buf| {
+            if let Some(on_message) = on_message {
+                on_message(kind, buf);
+            }
+        });
 
     if child.is_crash_reporter_process() {
         // Set the event.origin so that it's obvious when Rust events come from
@@ -50,4 +61,9 @@ pub fn init(sentry_client: &sentry::Client) -> Result<ClientHandle, Error> {
     }
 
     child.spawn()
+}
+
+#[must_use = "The return value from init() should not be dropped until the program exits"]
+pub fn init(sentry_client: &sentry::Client) -> Result<ClientHandle, Error> {
+    init_w_message_support(sentry_client, None)
 }

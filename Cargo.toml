@@ -11,8 +11,9 @@ version = "0.6.4"
 minidumper-child = "0.2"
 sentry = "0.31"
 thiserror = "1"
+serde_json = "1.0"
 
 [dev-dependencies]
 actix-rt = "2.7"
 sadness-generator = "0.5"
-sentry-test-server = {git = "https://github.com/timfish/sentry-test-server.git", rev = "134c30e"}
+sentry-test-server = { git = "https://github.com/timfish/sentry-test-server.git", rev = "134c30e" }
