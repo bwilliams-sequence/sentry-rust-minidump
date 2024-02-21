@@ -34,6 +34,13 @@ pub fn init_w_message_support(
                         ty: Some(AttachmentType::Minidump),
                         ..Default::default()
                     });
+
+                    scope.set_user(Some(sentry::protocol::User {
+                        id: Some("brian".to_string()),
+                        ..Default::default()
+                    }));
+
+                    scope.set_tag("test_user", "brian");
                 },
                 || {
                     sentry::capture_event(Event {
@@ -42,7 +49,6 @@ pub fn init_w_message_support(
                     })
                 },
             );
-
             // We need to flush because the server will exit after this closure returns
             sentry_client.flush(Some(std::time::Duration::from_secs(5)));
         })
