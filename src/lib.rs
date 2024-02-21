@@ -34,13 +34,6 @@ pub fn init_w_message_support(
                         ty: Some(AttachmentType::Minidump),
                         ..Default::default()
                     });
-
-                    scope.set_user(Some(sentry::protocol::User {
-                        id: Some("brian".to_string()),
-                        ..Default::default()
-                    }));
-
-                    scope.set_tag("test_user", "brian");
                 },
                 || {
                     sentry::capture_event(Event {
